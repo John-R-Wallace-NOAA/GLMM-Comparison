@@ -1,9 +1,7 @@
-﻿# GLMM-Comparison
 
+-------- Comparison of lme4, rstanarm, and glmmTMB with random effects in R -----------
 
- ------- Comparison of lme4, rstanarm, and glmmTMB with random effects in R -----------
-
-#-------- Model with Days|Subject given below shows stan_glmer() gives slight differences in random effects  -------------
+-------- Model with Days|Subject given below shows stan_glmer() gives slight differences in random effects  -------------
 
 
     require(rstanarm)
@@ -17,14 +15,14 @@
     summary(Stan.fm1 <- stan_glmer(Reaction ~ Days + (1|Subject), sleepstudy, chains = 4, cores = 4, iter = 2000))
 
 
-# ------- Fixed effects comparison with Std. Errors -----------
+ ------- Fixed effects comparison with Std. Errors -----------
 
     summary(TMB.fm1)$coefficients$cond
     summary(lme4.fm1)$coefficients
     data.frame(Estimate=fixef(Stan.fm1), Std.Error = se(Stan.fm1)[1:2])
 
 
-# ------- Random effects comparison with Std. Errors -----------
+ ------- Random effects comparison with Std. Errors -----------
 
     VarCorr(TMB.fm1)
     VarCorr(Stan.fm1)
@@ -36,29 +34,28 @@
 
 
  
-# ------- Graphical posterior predictive checks for the Stan model -----------
+ ------- Graphical posterior predictive checks for the Stan model -----------
 
 
-pp_check(Stan.fm1, "resid", nreps=30)
-pp_check(Stan.fm1, "resid", nreps=30)
-pp_check(Stan.fm1, "scat", nreps=30)
-pp_check(Stan.fm1, "test")
-
-
-
-# ------- Faster, but less accurate algorithms for the Stan model -----------
-
-summary(Stan.fm2 <- stan_glmer(Reaction ~ Days + (1|Subject), sleepstudy, algorithm="meanfield"))
-summary(Stan.fm3 <- stan_glmer(Reaction ~ Days + (1|Subject), sleepstudy, algorithm="fullrank"))
-
-
-data.frame(Estimate=fixef(Stan.fm1), Std.Error = se(Stan.fm1)[1:2])
-data.frame(Estimate=fixef(Stan.fm2), Std.Error = se(Stan.fm2)[1:2])
-data.frame(Estimate=fixef(Stan.fm3), Std.Error = se(Stan.fm3)[1:2])
+    pp_check(Stan.fm1, "resid", nreps=30)
+    pp_check(Stan.fm1, "resid", nreps=30)
+    pp_check(Stan.fm1, "scat", nreps=30)
+    pp_check(Stan.fm1, "test")
 
 
 
-# ------------------- Model with Days|Subject ----------------------------------------------
+ ------- Faster, but less accurate algorithms for the Stan model -----------
+
+    summary(Stan.fm2 <- stan_glmer(Reaction ~ Days + (1|Subject), sleepstudy, algorithm="meanfield"))
+    summary(Stan.fm3 <- stan_glmer(Reaction ~ Days + (1|Subject), sleepstudy, algorithm="fullrank"))
+
+
+    data.frame(Estimate=fixef(Stan.fm1), Std.Error = se(Stan.fm1)[1:2])
+    data.frame(Estimate=fixef(Stan.fm2), Std.Error = se(Stan.fm2)[1:2])
+    data.frame(Estimate=fixef(Stan.fm3), Std.Error = se(Stan.fm3)[1:2])
+
+
+ ------------------- Model with Days|Subject ----------------------------------------------
 
 
     summary(TMB.fm4 <- glmmTMB(Reaction ~ Days + (Days|Subject), sleepstudy))
