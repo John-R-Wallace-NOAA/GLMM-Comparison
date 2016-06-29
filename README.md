@@ -33,28 +33,6 @@
     matplot(rownames(RndmEffct), RndmEffct)
 
 
- 
- ------- Graphical posterior predictive checks for the Stan model -----------
-
-
-    pp_check(Stan.fm1, "resid", nreps=30)
-    pp_check(Stan.fm1, "resid", nreps=30)
-    pp_check(Stan.fm1, "scat", nreps=30)
-    pp_check(Stan.fm1, "test")
-
-
-
- ------- Faster, but less accurate algorithms for the Stan model -----------
-
-    summary(Stan.fm2 <- stan_glmer(Reaction ~ Days + (1|Subject), sleepstudy, algorithm="meanfield"))
-    summary(Stan.fm3 <- stan_glmer(Reaction ~ Days + (1|Subject), sleepstudy, algorithm="fullrank"))
-
-
-    data.frame(Estimate=fixef(Stan.fm1), Std.Error = se(Stan.fm1)[1:2])
-    data.frame(Estimate=fixef(Stan.fm2), Std.Error = se(Stan.fm2)[1:2])
-    data.frame(Estimate=fixef(Stan.fm3), Std.Error = se(Stan.fm3)[1:2])
-
-
  ------------------- Model with Days|Subject ----------------------------------------------
 
 
@@ -83,7 +61,26 @@
     matplot(rownames(RndmEffct), RndmEffct[,c(2,4,6)]) # Days
 
 
+ 
+ ------- Graphical posterior predictive checks for the Stan model -----------
 
+
+    pp_check(Stan.fm1, "resid", nreps=30)
+    pp_check(Stan.fm1, "resid", nreps=30)
+    pp_check(Stan.fm1, "scat", nreps=30)
+    pp_check(Stan.fm1, "test")
+
+
+
+ ------- Faster, but less accurate algorithms for the Stan model -----------
+
+    summary(Stan.fm2 <- stan_glmer(Reaction ~ Days + (1|Subject), sleepstudy, algorithm="meanfield"))
+    summary(Stan.fm3 <- stan_glmer(Reaction ~ Days + (1|Subject), sleepstudy, algorithm="fullrank"))
+
+
+    data.frame(Estimate=fixef(Stan.fm1), Std.Error = se(Stan.fm1)[1:2])
+    data.frame(Estimate=fixef(Stan.fm2), Std.Error = se(Stan.fm2)[1:2])
+    data.frame(Estimate=fixef(Stan.fm3), Std.Error = se(Stan.fm3)[1:2])
 
 
 
