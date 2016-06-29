@@ -63,14 +63,14 @@
     summary(Stan.fm4 <- stan_glmer(Reaction ~ Days + (Days|Subject), sleepstudy, chains = 4, cores = 4, iter = 4000)) # Iterations up to 4,000
 
 
-# ------- Fixed effects comparison with Std. Errors -----------
+ ------- Fixed effects comparison with Std. Errors -----------
 
     summary(TMB.fm4)$coefficients$cond
     summary(lme4.fm4)$coefficients
     data.frame(Estimate=fixef(Stan.fm4), Std.Error = se(Stan.fm4)[1:2])
 
 
-# ------- Random effects comparison with Std. Errors -----------
+ ------- Random effects comparison with Std. Errors -----------
 
     VarCorr(TMB.fm4)
     VarCorr(Stan.fm4)
