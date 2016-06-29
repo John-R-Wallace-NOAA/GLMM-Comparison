@@ -60,7 +60,7 @@
 
     summary(TMB.fm4 <- glmmTMB(Reaction ~ Days + (Days|Subject), sleepstudy))
     summary(lme4.fm4 <- lmer(Reaction ~ Days + (Days|Subject), sleepstudy))
-    summary(Stan.fm4 <- stan_glmer(Reaction ~ Days + (Days|Subject), sleepstudy, chains = 4, cores = 4, iter = 4000)) # Iterations up to 4,000
+    summary(Stan.fm4 <- stan_glmer(Reaction ~ Days + (Days|Subject), sleepstudy, chains = 4, cores = 4, iter = 4000)) # Iterations increased to 4,000
 
 
  ------- Fixed effects comparison with Std. Errors -----------
