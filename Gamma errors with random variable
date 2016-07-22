@@ -1,0 +1,199 @@
+    
+    require(TMB)
+    require(glmmTMB)
+    require(lme4)
+    require(lattice)
+    
+    # =========rGamma and dGamma functions which take mean and var as parameters, not shape (mu) and scale (lambda) ================================================================= 
+    
+       rGamma <- function(n, Mean, Var, nu = NULL, Shape.Scale = FALSE, verbose = FALSE, gammaFunc = rgamma) {
+    
+            "  # Dispersion is 1/nu, where nu is the shape parameter.  Dispersion is equal to the CV squared for the gamma.  "
+       
+                if(F) {  
+                "  # Example of generating data for a glm model with gamma errors.  "
+                   x <- seq(1,20, len=50000)
+                   y <- rGamma(50000, exp(3 + 2*x), 4*(exp(3 + 2*x))^2) # 4 is Dispersion (nu = 1/Dispersion)
+                   summary(glm(y ~ x, family = Gamma(link='log'))) # Estimate of Dispersion is given in summary()
+                   y <- rGamma(50000, exp(3 + 2*x),  nu = 1/4) # Now using the nu shape argument, the variance argument is not used
+                   summary(glm(y ~ x, family = Gamma(link='log'))) 
+               }
+       
+               if(is.null(nu))
+                       nu <- Mean^2/Var  # Since Dispersion = CV^2 = Var/Mean^2 = 1/nu
+       
+               if(verbose) {
+                       catf("\nAverage Shape =", mean(1/nu), "Average Scale =", mean(nu*Mean), "\n\n")
+                       plot(x, nu*Mean, col='green', ylim=c(0, max(c(1/nu, nu*Mean))))
+                       points(x, 1/nu)
+               }
+       
+               if(Shape.Scale)
+                 list(Shape= nu, Scale = Mean/nu)
+               else
+                 gammaFunc(n, nu, scale = Mean/nu)  # rgamma(n, shape, rate = 1, scale = 1/rate)
+       }
+       
+    
+       dGamma <- function(...) {
+               rGamma(..., gammaFunc = dgamma)
+       }     
+       
+      
+    # ================ Set up model and view =========================================================================================================================
+    
+       set.seed(123)
+       N <- 10000; Splits <- 5; a <- 3; b <- 4.1; nu <- 1.5; Ran.SD = 1.5   # Any value including the umber of Splits can be changed by the user
+    
+       Split <- factor(rep(1:Splits,length.out=N))
+       B  <- model.matrix(~ Split - 1)
+       u <- rnorm(ncol(B), sd = Ran.SD) ## logsduu=0
+    
+       x <- seq(1,3, len=N)
+       y <- rGamma(N, exp(a + b*x + B %*% u), (1/nu)*(exp(a + b*x + B %*% u))^2) 
+    
+       xyplot(y~x | Split)
+      
+    # ================ TMB ==============================================================================================================================
+    
+    # ------------------ linreg_Gamma_errors_random.cpp ----------------------------------------------------------
+       
+       writeLines(con = file("linreg_Gamma_errors_random.cpp"), c('
+       
+       // Linear regression model in parallel
+       #include <TMB.hpp>
+       
+       
+       // ************* dGamma_approx which calls lgamma_approx makes he() give a Hessian since there is no random component in this model (06 Jan 2014) *********
+       
+       template<class Type>
+       inline Type dGamma_approx(Type y, Type shape, Type scale, int give_log=0)
+       {
+         Type logres = (shape - Type(1.0))*log(y) - y/scale - lgamma_approx(shape) - shape*log(scale);
+         if(give_log)return logres; else return exp(logres);
+       }
+      
+       template<class Type>
+       Type objective_function<Type>::operator() ()
+       {
+         DATA_VECTOR(Y);
+         DATA_VECTOR(x);
+         DATA_MATRIX(B);         // Random effect design matrix
+         PARAMETER(a);
+         PARAMETER(b);
+         PARAMETER(nu);          // Shape parameter for the Gamma
+         PARAMETER_VECTOR(u);    // Random effects vector
+         PARAMETER(logsdu);      // Random effect standard deviations - Splits
+    
+         // parallel_accumulator<Type> nll(this);
+       
+         // Test without parallel first:
+         Type nll=0;
+       
+         Type ans = 0;
+         ans -= dnorm(u, Type(0), exp(logsdu), true).sum();
+         // ans -= dgamma(Y, nu, (exp(a + b*x + B*u)/nu), 1).sum();  // Gamma with log link; shape and scale
+    
+         for(int i=0;i<x.size();i++) {
+              Type BSum = 0;
+              for(int j=0;j<B.size()/x.size();j++) 
+                     BSum  +=  B(i,j)*u[j];
+              ans -= dGamma_approx(Y[i], nu, (exp(a + b*x[i] + BSum)/nu), 1);  // Gamma with log link; shape and scale
+         }
+    
+         // Report posterior mode and mean of sum(exp(u))
+         ADREPORT( sum(exp(u)) );
+         return ans;
+       }
+       
+       ')); closeAllConnections()
+    
+    # ------------------ End linreg_Gamma_errors_random.cpp ----------------------------------------------------------
+       
+    #------------------- Minimizing using nlminb() with TMB -------------------
+      
+       if(TRUE) 
+          compile('linreg_Gamma_errors_random.cpp')
+     
+       dyn.load(dynlib("linreg_Gamma_errors_random"))
+       
+       obj <- MakeADFun(data = list(Y=y, x=x, B=B), parameters = list(a=1 ,b=1, nu=1, u=u*0, logsdu=1), random = "u", DLL = "linreg_Gamma_errors_random")
+    
+       print(obj$par); cat("\n")
+       print(obj$fn()); cat("\n")
+       print(obj$gr()); cat("\n")
+       # print(obj$he()); cat("\n")  #  Hessian not yet implemented for models with random effects.
+    
+       (opt <- nlminb(obj$par, obj$fn, obj$gr))
+       summary(rep <- sdreport(obj))
+     
+    # ================ End TMB ============================================================================================================================  
+    
+    
+    # ---------- Minimizing using nlminb() without TMB -----------------------------------------------------------------------------------------
+    
+         fn.min <- function(V, y, x, B) {
+            a = V[1]; b = V[2]; nu = V[3]; u <- V[4:8]
+           -sum(dgamma(y, nu, scale = as.vector(exp(a + b*x + B%*%u)/nu), log = T)) # Gamma with log link; shape and scale
+         }
+       
+         (opt.NoTMB <- nlminb(rep(1, 8), fn.min, y=y, x=x, B=B))
+    
+    
+    # ------------ glmmTMB and lme4 -----------------------------------------------------------------------------------------------------------
+    
+    (glmmTMB.Gamma <- glmmTMB(y ~ x + (1 | Split), family = Gamma(link='log'))) # Without summary() to see dispersion which is incorrectly given as shape.nu (= 1/dispersion)
+    summary(glmmTMB.Gamma)
+    summary(lme4.Gamma <- glmer(y ~ x + (1 | Split), family = Gamma(link='log')))
+    
+    data.frame(N = N, Splits = Splits, a = a, b = b, Ran.SD = Ran.SD, Shape.nu = nu, Dispersion_Resid.Var = 1/nu, Resid.Std.Dev = sqrt(1/nu))
+    
+    
+    # ----------------- Compare models ------------------------------------------------------------------------------------------------------------
+    
+    # ------- Fixed effects comparison with Std. Errors -----------
+    
+    summary(glmmTMB.Gamma)$coefficients$cond; cat("Dispersion:", 1/sigma(glmmTMB.Gamma), "\nShape.nu =", sigma(glmmTMB.Gamma), "\n\n")  # Reciprocal of Dispersion and shape.nu taken to correct for the error
+    summary(lme4.Gamma)$coefficients; cat("Dispersion:", sigma(lme4.Gamma)^2, "\nShape.nu =", 1/sigma(lme4.Gamma)^2, "\n\n")
+    summary(rep, "fixed", p.value = TRUE)[1:3,]  # TMB
+    Par <- data.frame(Estimate = opt.NoTMB$par[1:3]); rownames(Par) <- c('a', 'b', 'nu'); Par
+    
+    
+    # ------- Std Dev of Random effects  -----------
+    
+    VarCorr(glmmTMB.Gamma)
+    VarCorr(lme4.Gamma)
+    exp(summary(rep, "fixed", p.value = TRUE)[4, 1, drop=F])  # TMB
+    
+    # -------- Random effects ------
+    
+    ranef(glmmTMB.Gamma)$cond$Split
+    ranef(lme4.Gamma)$Split
+    summary(rep, "random")  # TMB
+    Par <- data.frame(Estimate = opt.NoTMB$par[4:8]); Par
+    
+    
+    # ------- Log likelihood -------
+    
+    logLik(glmmTMB.Gamma)
+    logLik(lme4.Gamma)
+    opt$objective  # TMB
+    opt.NoTMB$objective
+    
+    # ------- AIC -----------------
+    
+    AIC(glmmTMB.Gamma)
+    AIC(lme4.Gamma)
+    2 * opt$objective + 2 * 4  # TMB
+    2 * opt.NoTMB$objective + 2 * 4  # NoTMB
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
