@@ -1,4 +1,4 @@
-Comparisoins:
+Comparisons:
 
 1:GLMM comparison using TMB's 'simple' example
 
