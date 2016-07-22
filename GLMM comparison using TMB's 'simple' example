@@ -1,0 +1,157 @@
+
+GLMM comparison for the R packages: lme4, rstanarm,  glmmTMB, and TMB using TMB's 'simple' example (with slight modification).
+
+
+
+     #  ------------------- Start cpp ------------------------------------------------------------------------------------
+    writeLines(con = file("simple2.cpp"), c('
+    
+    // Normal linear mixed model specified through sparse design matrices.
+        #include <TMB.hpp>
+
+    template<class Type>
+    Type objective_function<Type>::operator() ()
+     {
+       DATA_VECTOR(x);         // Observations
+       DATA_SPARSE_MATRIX(B);  // Random effect design matrix
+       DATA_SPARSE_MATRIX(BB);  // Random effect design matrix
+       DATA_SPARSE_MATRIX(A);  // Fixed effect design matrix
+       PARAMETER_VECTOR(u);    // Random effects vector
+       PARAMETER_VECTOR(uu);    // Random effects vector
+       PARAMETER_VECTOR(beta); // Fixed effects vector
+       PARAMETER(logsdu);      // Random effect standard deviations - year
+       PARAMETER(logsduu);      // Random effect standard deviations - quarter
+       PARAMETER(logsd0);      // Measurement standard deviation
+
+    // Distribution of random effect (u):
+     Type ans = 0;
+     ans -= dnorm(u, Type(0), exp(logsdu), true).sum();
+    ans -= dnorm(uu, Type(0), exp(logsduu), true).sum();
+
+     // Distribution of obs given random effects (x|u):
+     vector<Type> y = A*beta + B*u + BB*uu;
+     ans -= dnorm(x, y, exp(logsd0), true).sum();
+
+    // Apply delta method on sd0:
+    ADREPORT( exp(logsd0) );
+
+     // Report posterior mode and mean of sum(exp(u))
+    ADREPORT( sum(exp(u)) );
+    ADREPORT( sum(exp(uu)) );
+    return ans;
+    }
+
+    ')); closeAllConnections()
+    #  ------------------- End cpp ------------------------------------------------------------------------------------
+    
+    require(TMB)
+    compile("simple2.cpp")
+    dyn.load(dynlib("simple2"))
+    
+    ## Test data
+    set.seed(123)
+    y <- rep(1900:2010,each=2)
+    year <- factor(y)
+    quarter <- factor(rep(1:4,length.out=length(year)))
+    period <- factor((y > mean(y))+1)
+    ## Random year and random quarter separate effects, fixed period effect:
+    B <- model.matrix(~ year - 1)
+    BB  <- model.matrix(~ quarter - 1)
+    A <- model.matrix(~ period - 1)
+    B <- as(B,"dgTMatrix")
+    BB <- as(BB,"dgTMatrix")
+    A <- as(A,"dgTMatrix")
+    u <- rnorm(ncol(B)) ## logsdu=0
+    uu <- rnorm(ncol(BB)) ## logsduu=0
+    beta <- rnorm(ncol(A))*100
+    eps <- rnorm(nrow(B),sd=1) ## logsd0=0
+    x <- as.numeric( A %*% beta + B %*% u + BB %*% uu + eps )
+
+
+    ## Fit model
+    obj <<- MakeADFun(data=list(x=x, B=B, BB=BB, A=A),
+                 parameters=list(u=u*0, uu=uu*0, beta=beta*0, logsdu=1, logsduu=1, logsd0=1),
+                 random=c("u", "uu"),
+                 DLL="simple2",
+                 silent=TRUE
+                 )
+    opt <<- nlminb(obj$par, obj$fn, obj$gr)
+    cat("\n\n"); print(opt)
+
+    rep <- sdreport(obj)
+
+
+    # Simple2NUTS <- run_mcmc(obj=obj, nsim=500, algorithm='NUTS', params.init=opt$par, diagnostic=TRUE, eps=0.1)
+    # for(i in 1:5) acf(Simple2NUTS$par[,i]) # Not converged - need more samples
+
+
+    # ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+    require(rstanarm)
+    require(glmmTMB)
+    require(lme4)
+
+
+    summary(glmmTMB.simple <- glmmTMB(x ~ -1 + period + (1 | year) + (1 | quarter)))
+    summary(lme4.simple <- lmer(x ~ -1 + period + (1 | year) + (1 | quarter)))
+    summary(Stan.simple <- stan_glmer(x ~ -1 + period + (1 | year) + (1 | quarter), chains = 4, cores = 4, iter = 2000))
+
+
+    # ------- Fixed effects comparison with Std. Errors -----------
+
+    summary(glmmTMB.simple)$coefficients$cond
+    summary(lme4.simple)$coefficients
+    data.frame(Estimate=fixef(Stan.simple), Std.Error = se(Stan.simple)[1:2])
+    summary(rep, "fixed", p.value = TRUE)[1:2,]
+
+    # MCMC:
+    # TMB.Fixed <- data.frame(Estimate = apply(Simple2NUTS$par[,1:2], 2, mean), MCMC.SD = apply(Simple2NUTS$par[,1:2], 2, sd)); rownames(TMB.Fixed) <- paste("period", levels(period), sep=""); TMB.Fixed
+
+
+
+     # ------- Random effects comparison with Std. Errors -----------
+
+    VarCorr(glmmTMB.simple)
+    VarCorr(lme4.simple)
+    VarCorr(Stan.simple)
+    exp(summary(rep, "fixed", p.value = TRUE)[3:5, 1, drop=F])
+
+    #  ------- Log likelihood -----------------
+
+    logLik(glmmTMB.simple)
+    logLik(lme4.simple)
+    logLik(Stan.simple)
+    opt$objective
+
+    #  ------- AIC -----------------
+
+    AIC(glmmTMB.simple)
+    AIC(lme4.simple)
+    AIC(Stan.simple)
+    2 * opt$objective + 2 * 5
+
+
+
+    (RndmEffct.year <- cbind(ranef(glmmTMB.simple)$cond$year, ranef(Stan.simple)$year, ranef(lme4.simple)$year, summary(rep, "random")[1:111,1]))[1:10,]
+    matplot(rownames(RndmEffct.year), RndmEffct.year)
+
+    windows()
+    (RndmEffct.quarter <- cbind(ranef(glmmTMB.simple)$cond$quarter, ranef(Stan.simple)$quarter, ranef(lme4.simple)$quarter, summary(rep, "random")[112:115,1]))
+    matplot(rownames(RndmEffct.quarter), RndmEffct.quarter)
+    
+     # ------- Graphical posterior predictive checks for the Stan model -----------
+
+     pp_check(Stan.simple, "resid", nreps=30)
+     pp_check(Stan.simple, "resid", nreps=30)
+     pp_check(Stan.simple, "scat", nreps=30)
+     pp_check(Stan.simple, "test")
+
+
+
+
+
+
+
+
+
+
