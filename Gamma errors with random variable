@@ -4,7 +4,7 @@
     require(lme4)
     require(lattice)
     
-    # =========rGamma function which takes mean and var as parameters not shape (mu) and scale (lambda) ================================================================= 
+    # =========rGamma function which takes mean and var as parameters, not shape (mu) and scale (lambda) ================================================================= 
     
        rGamma <- function(n, Mean, Var, nu = NULL, Shape.Scale = FALSE, verbose = FALSE, gammaFunc = rgamma) {
     
