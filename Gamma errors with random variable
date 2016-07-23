@@ -182,13 +182,3 @@
     2 * opt$objective + 2 * 4  # TMB
     2 * opt.NoTMB$objective + 2 * 4  # NoTMB
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
