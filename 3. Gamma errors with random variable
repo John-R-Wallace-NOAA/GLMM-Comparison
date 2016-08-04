@@ -38,7 +38,7 @@
     # ================ Set up model and view =========================================================================================================================
     
        set.seed(123)
-       N <- 10000; Splits <- 5; a <- 3; b <- 4.1; nu <- 1.5; Ran.SD = 1.5   # Any value including the umber of Splits can be changed by the user
+       N <- 10000; Splits <- 5; a <- 3; b <- 4.1; nu <- 1.5; Ran.SD = 1.5   # Any value including the number of random splits can be changed by the user
     
        Split <- factor(rep(1:Splits,length.out=N))
        B  <- model.matrix(~ Split - 1)
@@ -120,11 +120,11 @@
        # summary(rep <- sdreport(obj))
     
        # (opt <- TMBhelper::Optimize(obj, bias.correct = T))  # devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
-       (opt <- JRWToolBox::Optimize(obj, bias.correct = T)) # For a version of Optimize which includes random effects.  # devtools::install_github("John-R-Wallace/R-ToolBox") 
+       (opt.TMB.Gamma <- JRWToolBox::Optimize(obj, bias.correct = T)) # For a version of Optimize which includes random effects.  # devtools::install_github("John-R-Wallace/R-ToolBox") 
  
     # ================ End TMB ============================================================================================================================  
-    
-    
+  
+
     # ---------- Minimizing using nlminb() without TMB -----------------------------------------------------------------------------------------
     
          fn.min <- function(V, y, x, B) {
@@ -132,7 +132,7 @@
            -sum(dgamma(y, nu, scale = as.vector(exp(a + b*x + B%*%u)/nu), log = T)) # Gamma with log link; shape and scale
          }
        
-         (opt.NoTMB <- nlminb(rep(1, 8), fn.min, y=y, x=x, B=B))
+         (opt.NoTMB.Gamma <- nlminb(rep(1, 8), fn.min, y=y, x=x, B=B))
     
     
     # ------------ glmmTMB and lme4 -----------------------------------------------------------------------------------------------------------
@@ -141,45 +141,48 @@
     summary(glmmTMB.Gamma)
     summary(lme4.Gamma <- glmer(y ~ x + (1 | Split), family = Gamma(link='log')))
     
-    data.frame(N = N, Splits = Splits, a = a, b = b, Ran.SD = Ran.SD, Shape.nu = nu, Dispersion_Resid.Var = 1/nu, Resid.Std.Dev = sqrt(1/nu))
     
     
     # ----------------- Compare models ------------------------------------------------------------------------------------------------------------
-    
+  
+    # ---------- True Values --------------------
+
+    data.frame(N = N, Splits = Splits, a = a, b = b, Ran.SD = Ran.SD, Shape.nu = nu, Dispersion_aka_Resid.Var = 1/nu, Resid.Std.Dev = sqrt(1/nu))
+   
     # ------- Fixed effects comparison with Std. Errors -----------
-    
+
     summary(glmmTMB.Gamma)$coefficients$cond; cat("Dispersion:", 1/sigma(glmmTMB.Gamma), "\nShape.nu =", sigma(glmmTMB.Gamma), "\n\n")  # Reciprocal of Dispersion and shape.nu taken to correct for the error
     summary(lme4.Gamma)$coefficients; cat("Dispersion:", sigma(lme4.Gamma)^2, "\nShape.nu =", 1/sigma(lme4.Gamma)^2, "\n\n")
-    summary(rep, "fixed", p.value = TRUE)[1:3,]  # TMB
-    Par <- data.frame(Estimate = opt.NoTMB$par[1:3]); rownames(Par) <- c('a', 'b', 'nu'); Par
+    summary(opt.TMB.Gamma$SD, "fixed", p.value = TRUE)[1:3,]  # TMB
+    Par <- data.frame(Estimate = opt.NoTMB.Gamma$par[1:3]); rownames(Par) <- c('a', 'b', 'nu'); Par
     
     
     # ------- Std Dev of Random effects  -----------
     
     VarCorr(glmmTMB.Gamma)
     VarCorr(lme4.Gamma)
-    exp(summary(rep, "fixed", p.value = TRUE)[4, 1, drop=F])  # TMB
+    exp(summary(opt.TMB.Gamma$SD, "fixed", p.value = TRUE)[4, 1, drop=F]) 
     
     # -------- Random effects ------
     
     ranef(glmmTMB.Gamma)$cond$Split
     ranef(lme4.Gamma)$Split
-    summary(rep, "random")  # TMB
-    Par <- data.frame(Estimate = opt.NoTMB$par[4:8]); Par
+    opt.TMB.Gamma$Random 
+    Par <- data.frame(Estimate = opt.NoTMB.Gamma$par[4:8]); Par  
     
     
     # ------- Log likelihood -------
     
     logLik(glmmTMB.Gamma)
     logLik(lme4.Gamma)
-    opt$objective  # TMB
-    opt.NoTMB$objective
+    opt.TMB.Gamma$objective 
+    opt.NoTMB.Gamma$objective
     
     # ------- AIC -----------------
     
     AIC(glmmTMB.Gamma)
     AIC(lme4.Gamma)
-    2 * opt$objective + 2 * 4  # TMB
-    2 * opt.NoTMB$objective + 2 * 4  # NoTMB
+    2 * opt.TMB.Gamma$objective + 2 * 4  
+    2 * opt.NoTMB.Gamma$objective + 2 * 4  
     
 
