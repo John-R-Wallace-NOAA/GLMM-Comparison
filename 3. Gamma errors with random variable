@@ -58,9 +58,6 @@
        // Linear regression model in parallel
        #include <TMB.hpp>
        
-       
-       // ************* dGamma_approx which calls lgamma_approx makes he() give a Hessian since there is no random component in this model (06 Jan 2014) *********
-       
        template<class Type>
        inline Type dGamma_approx(Type y, Type shape, Type scale, int give_log=0)
        {
@@ -119,9 +116,12 @@
        print(obj$gr()); cat("\n")
        # print(obj$he()); cat("\n")  #  Hessian not yet implemented for models with random effects.
     
-       (opt <- nlminb(obj$par, obj$fn, obj$gr))
-       summary(rep <- sdreport(obj))
-     
+       # (opt <- nlminb(obj$par, obj$fn, obj$gr))
+       # summary(rep <- sdreport(obj))
+    
+       # (opt <- TMBhelper::Optimize(obj, bias.correct = T))  # devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
+       (opt <- JRWToolBox::Optimize(obj, bias.correct = T)) # For a version of Optimize which includes random effects.  # devtools::install_github("John-R-Wallace/R-ToolBox") 
+ 
     # ================ End TMB ============================================================================================================================  
     
     
@@ -182,3 +182,4 @@
     2 * opt$objective + 2 * 4  # TMB
     2 * opt.NoTMB$objective + 2 * 4  # NoTMB
     
+
