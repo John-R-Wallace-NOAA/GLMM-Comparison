@@ -137,8 +137,7 @@
     
     # ------------ glmmTMB and lme4 -----------------------------------------------------------------------------------------------------------
     
-    (glmmTMB.Gamma <- glmmTMB(y ~ x + (1 | Split), family = Gamma(link='log'))) # Without summary() to see dispersion which is incorrectly given as shape.nu (= 1/dispersion)
-    summary(glmmTMB.Gamma)
+    summary(glmmTMB.Gamma <- glmmTMB(y ~ x + (1 | Split), family = Gamma(link='log'))) # summary() now works with glmmTMB to see dispersion (which now has now been corrected, 23 Aug 2016)
     summary(lme4.Gamma <- glmer(y ~ x + (1 | Split), family = Gamma(link='log')))
     
     
@@ -151,8 +150,8 @@
    
     # ------- Fixed effects comparison with Std. Errors -----------
 
-    summary(glmmTMB.Gamma)$coefficients$cond; cat("Dispersion:", 1/sigma(glmmTMB.Gamma), "\nShape.nu =", sigma(glmmTMB.Gamma), "\n\n")  # Reciprocal of Dispersion and shape.nu taken to correct for the error
-    summary(lme4.Gamma)$coefficients; cat("Dispersion:", sigma(lme4.Gamma)^2, "\nShape.nu =", 1/sigma(lme4.Gamma)^2, "\n\n")
+    summary(glmmTMB.Gamma)$coefficients$cond; cat("Dispersion =", sigma(glmmTMB.Gamma)^2, "\nShape.nu =", 1/sigma(glmmTMB.Gamma)^2, "\n\n")  # Dispersion now correct as of 23 Aug 2016
+    summary(lme4.Gamma)$coefficients; cat("Dispersion =", sigma(lme4.Gamma)^2, "\nShape.nu =", 1/sigma(lme4.Gamma)^2, "\n\n")
     summary(opt.TMB.Gamma$SD, "fixed", p.value = TRUE)[1:3,]  # TMB
     Par <- data.frame(Estimate = opt.NoTMB.Gamma$par[1:3]); rownames(Par) <- c('a', 'b', 'nu'); Par
     
