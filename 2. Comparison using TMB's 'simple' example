@@ -1,5 +1,5 @@
 
-GLMM comparison for the R packages: lme4, rstanarm,  glmmTMB, and TMB using TMB's 'simple' example (with slight modification).
+# GLMM comparison for the R packages: lme4, rstanarm,  glmmTMB, and TMB using TMB's 'simple' example (with slight modification).
 
 
 
