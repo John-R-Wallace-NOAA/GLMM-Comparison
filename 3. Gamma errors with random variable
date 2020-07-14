@@ -44,7 +44,7 @@
        B  <- model.matrix(~ Split - 1)
        u <- rnorm(ncol(B), sd = Ran.SD) ## logsduu=0
     
-       x <- seq(1,3, len=N)
+       x <- seq(1,3, len = N)
        y <- rGamma(N, exp(a + b*x + B %*% u), (1/nu)*(exp(a + b*x + B %*% u))^2) 
     
        xyplot(y~x | Split)
@@ -120,7 +120,7 @@
        # summary(rep <- sdreport(obj))
     
        # (opt <- TMBhelper::Optimize(obj, bias.correct = T))  # devtools::install_github("kaskr/TMB_contrib_R/TMBhelper")
-       (opt.TMB.Gamma <- JRWToolBox::Optimize(obj, bias.correct = T)) # For a version of Optimize which includes random effects.  # devtools::install_github("John-R-Wallace/R-ToolBox") 
+       (opt.TMB.Gamma <- JRWToolBox::OptimizeJRW(obj, bias.correct = T)) # For a version of Optimize which includes random effects.  # devtools::install_github("John-R-Wallace/R-ToolBox") 
  
     # ================ End TMB ============================================================================================================================  
   
