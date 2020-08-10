@@ -111,7 +111,7 @@
     #------------------- Minimizing using nlminb() with TMB -------------------
       
        if(TRUE) 
-          compile('linreg_Gamma_errors_random.cpp')
+          compile('linreg_Gamma_errors_random.cpp', CPPFLAGS="-Wno-ignored-attributes")
      
        dyn.load(dynlib("linreg_Gamma_errors_random"))
        
